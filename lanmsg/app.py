@@ -197,11 +197,14 @@ class Messenger:
             previous.writer.close()
         self.sessions[name] = session
         print(f"Encrypted session established with {name}")
-        await session.serve()
+        return session
 
     async def accept_connection(self, reader, writer):
         try:
-            await asyncio.wait_for(self.handshake(reader, writer, False), timeout=None)
+            session = await asyncio.wait_for(
+                self.handshake(reader, writer, False), timeout=None
+            )
+            await session.serve()
         except (Exception,) as exc:
             print(f"Incoming connection rejected: {type(exc).__name__}: {exc}")
             writer.close()
@@ -213,13 +216,16 @@ class Messenger:
     async def _connect_task(self, reader, writer):
         try:
             # Handshake has its own short timeout; chat is long-lived.
-            await asyncio.wait_for(self._start_session(reader, writer), 15)
+            await self._start_session(reader, writer)
         except (Exception,) as exc:
             print(f"Outgoing connection failed: {type(exc).__name__}: {exc}")
             writer.close()
 
     async def _start_session(self, reader, writer):
-        await self.handshake(reader, writer, True)
+        session = await asyncio.wait_for(
+            self.handshake(reader, writer, True), timeout=15
+        )
+        await session.serve()
 
     async def command(self, command):
         parts = command.strip().split(maxsplit=2)
